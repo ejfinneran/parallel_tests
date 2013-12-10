@@ -23,6 +23,10 @@ module ParallelTests
       Tempfile.open 'parallel_tests-lock' do |lock|
         return Parallel.map(items, :in_threads => num_processes) do |item|
           result = yield(item)
+          if result[:exit_status] != 0 && options[:fail_fast]
+            # If any of the groups fail, fail fast and halt the rest of them
+            raise Parallel::Break
+          end
           report_output(result, lock) if options[:serialize_stdout]
           result
         end
@@ -110,6 +114,8 @@ TEXT
           options[:single_process] << /#{pattern}/
         end
 
+        opts.on("-f", "--fail-fast",
+          "Halt other processes if one of them returns a non-zero status") { options[:fail_fast] = true }
         opts.on("-i", "--isolate",
           "Do not run any other tests in the group used by --single(-s)") do |pattern|
 
